@@ -1,0 +1,5 @@
+//FORMAT :
+//PARAM VALUE
+days 1095
+Civilian 32
+Military 37
