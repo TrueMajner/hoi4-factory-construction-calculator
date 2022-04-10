@@ -2,6 +2,9 @@ const fs = require("fs");
 
 const CONFIG_PATH = "./config.txt";
 const UPGRADE_PATH = "./upgrades.txt";
+const SETTING_PATH = "./settings.txt";
+
+let table = [];
 
 class Building {
     type;
@@ -17,12 +20,35 @@ class Building {
     }
 }
 
-let settings = {
-    global_speed : 1.8,
-    military_speed : 1,
-    civilian_speed : 1,
-    common_consumption_goods : 0.28
-};
+class Settings {
+    global_speed;
+    military_speed;
+    civilian_speed;
+    common_consumption_goods;
+
+    Fix = (number) => {
+        return +number.toFixed(2);
+    }
+
+    Increase = (param, value) => {
+        this[param] += value;
+        this[param] = this.Fix(this[param]);
+    }
+
+    constructor(_global_speed, _military_speed, _civilian_speed, _common_consumption_goods) {
+        [this.global_speed, this.military_speed, this.civilian_speed, this.common_consumption_goods] = [_global_speed, _military_speed, _civilian_speed, _common_consumption_goods]
+    }
+
+}
+
+let settings = new Settings();
+
+const types = {
+    M : "military_speed",
+    C : "global_speed",
+    A : "global_speed",
+    T : "common_consumption_goods"
+}
 
 class Upgrade {
     day;
@@ -30,12 +56,7 @@ class Upgrade {
     value;
 
     Use = () => {
-        let convertedType;
-        if(this.type === "M") convertedType = "military_speed";
-        else if(this.type === "C") convertedType = "civilian_speed";
-        else if(this.type === "A") convertedType = "global_speed";
-        else convertedType = "common_consumption_goods";
-        settings[convertedType] += Number(this.value);
+        settings.Increase(types[this.type], Number(this.value));
     }
 
     constructor(_day, _type, _value) {
@@ -43,34 +64,33 @@ class Upgrade {
     }
 }
 
-const LoadConfig = async (callback) => {
-    let UpgradeList = {};
-    let Config = {};
-    // TODO : Добавить возможность изменять из файла значение settings
-    fs.readFile(CONFIG_PATH, "utf8",
-        async function(err,cfg) {
-            cfg.split(/\r?\n/).forEach(line => {
-            if (!line.startsWith("//")) {
-                const args = line.split(" ");
-                Config[args[0]] = args[1];
-            }
+const Load = (file, converter, callback) => {
+    let array = [];
+    fs.readFile(file, "utf8",
+        async function(error,data) {
+        let lineNumber = 0;
+            data.split(/\r?\n/).forEach(line => {
+                if (!line.startsWith("//")) {
+                    const args = line.split(" ");
+                    array[lineNumber] = converter(args);
+                    lineNumber++;
+                }
+            });
+            await callback(array);
         });
-            fs.readFile(UPGRADE_PATH, "utf8",
-                async function (error, data) {
-                    data.split(/\r?\n/).forEach(line => {
-                        if (!line.startsWith("//")) {
-                            const args = line.split(" ");
-                            UpgradeList[args[0]] = new Upgrade(args[0], args[1], args[2]);
-                        }
-                    });
-                    await callback(UpgradeList, Config);
-                });
-        })
+}
+
+const LoadConfig = async (callback) => {
+    Load(CONFIG_PATH, (args) => [args[0], Number(args[1])], (Config) => {
+        Load(UPGRADE_PATH, (args) => new Upgrade(...args), (UpgradeList) => {
+            Load(SETTING_PATH, (args) => Number(args[1]),async (SettingsList) => {
+                await callback(Object.fromEntries(Config), UpgradeList, SettingsList);
+            });
+        });
+    });
 };
 
-let table = [];
-
-const Simulate = (UpgradeList, Config, MilitarySince) => {
+const Simulate = (Config, UpgradeList, MilitarySince) => {
     let InBuilding = [];
     let Civilian = Number(Config.Civilian);
     let Military = Number(Config.Military);
@@ -87,10 +107,12 @@ const Simulate = (UpgradeList, Config, MilitarySince) => {
         {
             let key_fix = 0;
             let toDistribute = Math.round(Civilian - ((Civilian + Military) * settings.common_consumption_goods));
+
             Object.keys(InBuilding).forEach(key => {
                 key -= key_fix;
                 let distributed = (toDistribute >= 15) ? 15 : toDistribute;
                 toDistribute -= distributed;
+
                 if(InBuilding[key].Build(distributed) === true) {
                     if(InBuilding[key].type === "C") {
                         Civilian ++;
@@ -114,17 +136,12 @@ const Simulate = (UpgradeList, Config, MilitarySince) => {
 }
 
 (async () => {
-    await LoadConfig(async (UpgradeList, Config) => {
+    await LoadConfig(async (Config, UpgradeList, SettingsList) => {
         for(let i = 0; i < Config.days; i ++) {
-            settings = {
-                global_speed : 1.8,
-                military_speed : 1,
-                civilian_speed : 1,
-                common_consumption_goods : 0.28
-            };
-            Simulate(UpgradeList, Config, i);
+            console.log(settings);
+            settings = new Settings(...SettingsList);
+            Simulate(Config, UpgradeList, i);
         }
         console.table(table);
     });
 })();
-
