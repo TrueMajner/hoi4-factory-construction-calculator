@@ -1,0 +1,4 @@
+global_speed 1.8
+military_speed 1
+civilian_speed 1
+common_consumption_goods 0.28
