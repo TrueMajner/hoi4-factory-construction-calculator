@@ -138,7 +138,6 @@ const Simulate = (Config, UpgradeList, MilitarySince) => {
 (async () => {
     await LoadConfig(async (Config, UpgradeList, SettingsList) => {
         for(let i = 0; i < Config.days; i ++) {
-            console.log(settings);
             settings = new Settings(...SettingsList);
             Simulate(Config, UpgradeList, i);
         }
