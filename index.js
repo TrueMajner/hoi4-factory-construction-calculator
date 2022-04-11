@@ -31,8 +31,7 @@ class Settings {
     }
 
     Increase = (param, value) => {
-        this[param] += value;
-        this[param] = this.Fix(this[param]);
+        this[param] = this.Fix(this[param] + value);
     }
 
     constructor(_global_speed, _military_speed, _civilian_speed, _common_consumption_goods) {
